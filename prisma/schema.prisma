@@ -12,6 +12,124 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id String @id @default(uuid())
+enum Role {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  TEACHER
+  SOCIAL_WORKER
+  CLINIC_STAFF
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+model School {
+  id        String   @id @default(uuid())
+  name      String
+  nameEn    String
+  code      String   @unique
+  phone     String?
+  address   String?
+  addressEn String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classes  Class[]
+  students Student[]
+  staff    Staff[]
+
+  @@map("schools")
+}
+
+model Class {
+  id        String   @id @default(uuid())
+  name      String
+  nameEn    String
+  grade     String
+  gradeEn   String
+  schoolId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  students Student[]
+  teachers Staff[]   @relation("TeacherClasses")
+
+  @@index([schoolId])
+  @@map("classes")
+}
+
+model Guardian {
+  id         String   @id @default(uuid())
+  nationalId String?  @unique
+  phone      String   @unique
+  fullName   String
+  fullNameEn String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  students Student[]
+
+  @@index([phone])
+  @@map("guardians")
+}
+
+model Student {
+  id          String    @id @default(uuid())
+  nationalId  String    @unique
+  fullName    String
+  fullNameEn  String
+  gender      Gender
+  dateOfBirth DateTime?
+
+  // FK Connection to Guardian
+  guardianId String
+  guardian   Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+
+  schoolId  String
+  classId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class  Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([guardianId])
+  @@index([schoolId, classId])
+  @@map("students")
+}
+
+model Staff {
+  id         String  @id @default(uuid())
+  email      String  @unique
+  password   String
+  fullName   String
+  fullNameEn String?
+  role       Role    @default(TEACHER)
+  isActive   Boolean @default(true)
+
+  schoolId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classes Class[] @relation("TeacherClasses")
+
+  @@index([email])
+  @@index([schoolId])
+  @@map("staff")
+}
+
+model OtpVerification {
+  id         String   @id @default(uuid())
+  identifier String
+  code       String   @unique
+  expiresAt  DateTime
+  isUsed     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, code, isUsed])
+  @@map("otp_verifications")
 }

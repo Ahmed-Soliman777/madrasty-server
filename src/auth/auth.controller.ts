@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
 import {
-  ParentAuthLoginDto,
+  GuardianAuthLoginDto,
+  GuardianOTPDto,
   StaffAuthLoginDto,
 } from "./dtos/auth-login-dto.js";
 import { AuthService } from "./auth.service.js";
@@ -8,10 +9,15 @@ import { AuthService } from "./auth.service.js";
 @Controller("/api/auth")
 export class AuthController {
   constructor(private authService: AuthService) {}
-  @Post("/parent/login")
+  @Post("/guardian/login")
   @HttpCode(HttpStatus.OK)
-  parentLogin(@Body() parentAuthLoginDto: ParentAuthLoginDto) {
-    return this.authService.ParentLogin(parentAuthLoginDto);
+  parentLogin(@Body() guardianAuthLoginDto: GuardianAuthLoginDto) {
+    return this.authService.GuardianLogin(guardianAuthLoginDto);
+  }
+  @Post("/guardian/otp") // make it like: /guardian/otp/123
+  @HttpCode(HttpStatus.OK)
+  guardianOtpValidation(@Body() guardianOTPDto: GuardianOTPDto) {
+    return this.authService.GuardianOTPValidation(guardianOTPDto);
   }
   @Post("/staff/login")
   @HttpCode(HttpStatus.OK)
