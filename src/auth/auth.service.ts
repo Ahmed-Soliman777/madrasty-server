@@ -24,43 +24,38 @@ export class AuthService {
       throw new BadRequestException("Please enter a valid student national id");
     }
 
-    try {
-      const student = await this.prisma.student.findUnique({
-        where: { nationalId: NationalId },
-        select: {
-          class: true,
-          dateOfBirth: true,
-          fullName: true,
-          fullNameEn: true,
-          gender: true,
-          nationalId: true,
-          school: {
-            select: {
-              name: true,
-              nameEn: true,
-              address: true,
-              addressEn: true,
-            },
-          },
-          guardian: {
-            select: {
-              fullName: true,
-              fullNameEn: true,
-              phone: true,
-            },
+    const student = await this.prisma.student.findUnique({
+      where: { nationalId: NationalId },
+      select: {
+        class: true,
+        dateOfBirth: true,
+        fullName: true,
+        fullNameEn: true,
+        gender: true,
+        nationalId: true,
+        school: {
+          select: {
+            name: true,
+            nameEn: true,
+            address: true,
+            addressEn: true,
           },
         },
-      });
+        guardian: {
+          select: {
+            fullName: true,
+            fullNameEn: true,
+            phone: true,
+          },
+        },
+      },
+    });
 
-      if (!student) {
-        throw new UnauthorizedException("Invalid Student National ID");
-      }
-
-      return { message: `OTP is sent to your phone, please verify.` };
-    } catch (error) {
-      console.error(error);
-      return "Invalid Credentials";
+    if (!student) {
+      throw new UnauthorizedException("Invalid Student National ID");
     }
+
+    return { message: `OTP is sent to your phone, please verify.` };
   }
 
   async GuardianOTPValidation({ LoginOTP }: GuardianOTPDto) {
@@ -91,6 +86,6 @@ export class AuthService {
     );
     if (!staffPasswordValidation)
       throw new UnauthorizedException("Invalid credentials!");
-    return `token`;
+    return { message: `welcome` };
   }
 }
