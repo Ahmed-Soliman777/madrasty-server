@@ -1,23 +1,23 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
 import {
-  GuardianAuthLoginDto,
-  GuardianOTPDto,
+  GuardianRequestOtpDto,
+  GuardianVerifyOtpDto,
   StaffAuthLoginDto,
 } from "./dtos/auth-login-dto.js";
 import { AuthService } from "./auth.service.js";
 
-@Controller("/api/auth")
+@Controller(["/auth", "/api/auth"])
 export class AuthController {
   constructor(private authService: AuthService) {}
-  @Post("/guardian/login")
+  @Post("/guardian/request-otp")
   @HttpCode(HttpStatus.OK)
-  parentLogin(@Body() guardianAuthLoginDto: GuardianAuthLoginDto) {
-    return this.authService.GuardianLogin(guardianAuthLoginDto);
+  requestGuardianOtp(@Body() guardianRequestOtpDto: GuardianRequestOtpDto) {
+    return this.authService.requestGuardianOtp(guardianRequestOtpDto);
   }
-  @Post("/guardian/otp") // make it like: /guardian/otp/123
+  @Post("/guardian/verify-otp")
   @HttpCode(HttpStatus.OK)
-  guardianOtpValidation(@Body() guardianOTPDto: GuardianOTPDto) {
-    return this.authService.GuardianOTPValidation(guardianOTPDto);
+  verifyGuardianOtp(@Body() guardianVerifyOtpDto: GuardianVerifyOtpDto) {
+    return this.authService.verifyGuardianOtp(guardianVerifyOtpDto);
   }
   @Post("/staff/login")
   @HttpCode(HttpStatus.OK)

@@ -44,6 +44,12 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Guardian WhatsApp OTP login
+
+Set `DATABASE_URL` and a strong `JWT_SECRET` in the server environment before starting the API. Run `npm run start:dev` from `madrasty-server`. On first startup, the server prints a WhatsApp QR code in that terminal. In WhatsApp, open **Linked devices**, choose **Link a device**, and scan the QR code. Baileys saves the linked session in `baileys_auth_info`; subsequent starts reuse it. Keep that directory private and out of source control. If the account is logged out, remove the directory and restart to pair again.
+
+The API accepts guardian OTP requests at `POST /auth/guardian/request-otp` and OTP verification at `POST /auth/guardian/verify-otp` (the existing `/api/auth` prefix remains available as an alias).
+
 ## Run tests
 
 ```bash

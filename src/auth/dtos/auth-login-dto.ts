@@ -1,14 +1,20 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from "class-validator";
+import { IsEmail, IsNotEmpty, IsString, Matches } from "class-validator";
 
-export class GuardianAuthLoginDto {
+export class GuardianRequestOtpDto {
   @IsNotEmpty()
   @IsString()
-  @MinLength(14)
+  @Matches(/^\d{14}$/)
   NationalId: string;
 }
 
-export class GuardianOTPDto {
+export class GuardianVerifyOtpDto {
   @IsNotEmpty()
+  @IsString()
+  phone: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @Matches(/^\d{6}$/)
   LoginOTP: string;
 }
 
