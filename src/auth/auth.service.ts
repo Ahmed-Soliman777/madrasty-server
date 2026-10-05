@@ -2,10 +2,9 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
-  InternalServerErrorException,
   ServiceUnavailableException,
 } from "@nestjs/common";
-import { createHmac, randomInt } from "node:crypto";
+import { randomInt } from "node:crypto";
 import { PrismaService } from "../prisma.service.js";
 import * as bcrypt from "bcrypt";
 import {
@@ -14,12 +13,14 @@ import {
   StaffAuthLoginDto,
 } from "./dtos/auth-login-dto.js";
 import { normalizeEgyptianPhone, WhatsappService } from "./whatsapp.service.js";
+import { TokenService } from "./token.service.js";
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private whatsappService: WhatsappService,
+    private tokenService: TokenService,
   ) {}
 
   async compareStaffPassword(staffBodyPassword: string, staffPassword: string) {
@@ -119,7 +120,9 @@ export class AuthService {
             fullName: true,
             fullNameEn: true,
             gender: true,
-            class: { select: { name: true, nameEn: true, grade: true, gradeEn: true } },
+            class: {
+              select: { name: true, nameEn: true, grade: true, gradeEn: true },
+            },
             school: { select: { name: true, nameEn: true } },
           },
         },
@@ -129,33 +132,13 @@ export class AuthService {
 
     return {
       message: "Login successful",
-      accessToken: this.createAccessToken(guardian.id, normalizedPhone),
+      accessToken: this.tokenService.sign({
+        type: "guardian",
+        sub: guardian.id,
+        phone: normalizedPhone,
+      }),
       guardian,
     };
-  }
-
-  private createAccessToken(guardianId: string, phone: string): string {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      throw new InternalServerErrorException("JWT_SECRET is not configured");
-    }
-
-    const now = Math.floor(Date.now() / 1000);
-    const encode = (value: object) =>
-      Buffer.from(JSON.stringify(value)).toString("base64url");
-    const header = encode({ alg: "HS256", typ: "JWT" });
-    const payload = encode({
-      sub: guardianId,
-      phone,
-      role: "guardian",
-      iat: now,
-      exp: now + 60 * 60,
-    });
-    const unsignedToken = `${header}.${payload}`;
-    const signature = createHmac("sha256", secret)
-      .update(unsignedToken)
-      .digest("base64url");
-    return `${unsignedToken}.${signature}`;
   }
 
   async StaffLogin({ email, password }: StaffAuthLoginDto) {
@@ -165,7 +148,7 @@ export class AuthService {
     const staff = await this.prisma.staff.findUnique({
       where: { email },
     });
-    if (!staff || !staff.password) {
+    if (!staff || !staff.password || !staff.isActive) {
       throw new UnauthorizedException("Invalid credentials");
     }
     const staffPasswordValidation = await bcrypt.compare(
@@ -174,6 +157,21 @@ export class AuthService {
     );
     if (!staffPasswordValidation)
       throw new UnauthorizedException("Invalid credentials!");
-    return { message: `welcome` };
+    return {
+      message: "welcome",
+      accessToken: this.tokenService.sign({
+        type: "staff",
+        sub: staff.id,
+        role: staff.role,
+        schoolId: staff.schoolId,
+      }),
+      staff: {
+        id: staff.id,
+        fullName: staff.fullName,
+        fullNameEn: staff.fullNameEn,
+        role: staff.role,
+        schoolId: staff.schoolId,
+      },
+    };
   }
 }
