@@ -17,6 +17,14 @@ export class RolesGuard implements CanActivate {
 
   constructor(private reflector: Reflector) {}
 
+  /**
+   * Allows public routes or an authenticated user with one of the declared
+   * roles. Handler metadata overrides controller metadata.
+   *
+   * @throws {UnauthorizedException} If a protected request has no attached user.
+   * @throws {ForbiddenException} If a protected route has no roles, an empty
+   * role list, or a role list that excludes the user's role.
+   */
   canActivate(context: ExecutionContext): boolean {
     const targets = [context.getHandler(), context.getClass()];
     if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, targets)) {

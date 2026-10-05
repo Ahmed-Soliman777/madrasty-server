@@ -38,6 +38,7 @@ export class AuthController {
   staffLogin(@Body() staffAuthLoginDto: StaffAuthLoginDto) {
     return this.authService.StaffLogin(staffAuthLoginDto);
   }
+  /** Returns the authenticated user attached to the request by the auth guard. */
   @Roles(...ANY_ROLE)
   @Get("/me")
   me(@CurrentUser() user: AuthUser) {

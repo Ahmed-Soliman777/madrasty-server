@@ -10,6 +10,7 @@ import { AuthedRequest, AuthErrorCode, AuthUser } from "../auth-user.type.js";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator.js";
 import { AccessTokenClaims, TokenService } from "../token.service.js";
 
+/** Creates a 401 exception with a client-facing error code and message. */
 const unauthorized = (code: string, message: string) =>
   new UnauthorizedException({
     statusCode: 401,
@@ -26,6 +27,14 @@ export class AuthGuard implements CanActivate {
     private prisma: PrismaService,
   ) {}
 
+  /**
+   * Allows public routes immediately; otherwise authenticates a bearer token,
+   * attaches the resolved user to the HTTP request, and returns true.
+   * Handler metadata takes precedence over controller metadata.
+   *
+   * @throws {UnauthorizedException} If the token is missing, verification fails,
+   * or the staff account is missing or inactive. Database errors propagate.
+   */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
@@ -53,11 +62,24 @@ export class AuthGuard implements CanActivate {
     return true;
   }
 
+  /**
+   * Returns the token after a case-insensitive Bearer scheme, or undefined if
+   * the scheme or token is missing. Requires a single separating space and
+   * ignores any fields after the token.
+   */
   private extractBearerToken(request: AuthedRequest): string | undefined {
     const [scheme, token] = (request.headers.authorization ?? "").split(" ");
     return scheme?.toLowerCase() === "bearer" && token ? token : undefined;
   }
 
+  /**
+   * Builds guardian identity directly from claims with role "guardian",
+   * including legacy tokens without a type. Otherwise loads current staff
+   * identity, role, school, and active status from the database.
+   *
+   * @throws {UnauthorizedException} If the staff account is missing or inactive.
+   * Database errors propagate to the caller.
+   */
   private async resolveUser(claims: AccessTokenClaims): Promise<AuthUser> {
     // tokens القديمة (قبل التوحيد) مفيهاش type، بس role = "guardian"
     if (claims.role === "guardian") {

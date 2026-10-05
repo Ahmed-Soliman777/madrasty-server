@@ -74,6 +74,16 @@ export class AuthService {
     };
   }
 
+  /**
+   * Consumes a matching, unused OTP whose expiration is strictly in the future
+   * and returns a login message, access token, and guardian with student details.
+   * The phone is normalized to an Egyptian number with a leading `+`.
+   * The OTP remains consumed if the subsequent guardian lookup or signing fails.
+   *
+   * @throws {UnauthorizedException} If the phone or six-digit code is invalid,
+   * the OTP is unavailable or expired, or no guardian matches the phone.
+   * Database and token-signing errors propagate to the caller.
+   */
   async verifyGuardianOtp({ phone, LoginOTP }: GuardianVerifyOtpDto) {
     const phoneDigits = normalizeEgyptianPhone(phone);
     if (!phoneDigits || !/^\d{6}$/.test(LoginOTP)) {
@@ -141,6 +151,15 @@ export class AuthService {
     };
   }
 
+  /**
+   * Authenticates active staff by email and password, returning a welcome
+   * message, access token, and staff identity details without the password.
+   *
+   * @throws {BadRequestException} If either credential is empty.
+   * @throws {UnauthorizedException} If the account is missing, inactive, lacks a
+   * password, or the supplied password does not match.
+   * Database, password-comparison, and token-signing errors propagate.
+   */
   async StaffLogin({ email, password }: StaffAuthLoginDto) {
     if (!email || !password) {
       throw new BadRequestException("Please enter login credentials");

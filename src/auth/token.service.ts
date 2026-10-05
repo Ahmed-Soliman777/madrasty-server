@@ -17,6 +17,13 @@ export type SignAccessTokenInput =
 const ALGORITHM = "HS256" as const;
 const DEFAULT_EXPIRES_IN_SECONDS = 60 * 60;
 
+/**
+ * Configures HS256 signing and verification with the trimmed JWT_SECRET.
+ * JWT_EXPIRES_IN_SECONDS is converted to a number; zero, empty, missing, or
+ * nonnumeric values default to 3,600 seconds. Other values pass through.
+ *
+ * @throws {Error} If JWT_SECRET is missing or contains only whitespace.
+ */
 export function jwtConfigFactory(): JwtModuleOptions {
   const secret = process.env.JWT_SECRET?.trim();
   if (!secret) throw new Error("JWT_SECRET is not configured");
@@ -41,12 +48,24 @@ export function jwtConfigFactory(): JwtModuleOptions {
 export class TokenService {
   constructor(private readonly jwt: JwtService) {}
 
+  /**
+   * Signs an access token using the configured JWT options, adding the guardian
+   * role for guardian input. The subject (`sub`) is the account ID.
+   * Signing errors propagate to the caller.
+   */
   sign(input: SignAccessTokenInput): string {
     const payload: AccessTokenPayload =
       input.type === "guardian" ? { ...input, role: "guardian" } : input;
     return this.jwt.sign(payload);
   }
 
+  /**
+   * Returns the verified JWT payload without validating its application-specific
+   * claim structure.
+   *
+   * @throws {UnauthorizedException} Converts any JWT verification error,
+   * including an invalid signature or expiration, to "Invalid or expired token".
+   */
   verify(token: string): AccessTokenClaims {
     try {
       return this.jwt.verify<AccessTokenClaims>(token);
