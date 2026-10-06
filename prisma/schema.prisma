@@ -25,6 +25,30 @@ enum Gender {
   FEMALE
 }
 
+enum Weekday {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+}
+
+enum AttendanceSessionStatus {
+  OPEN
+  SUBMITTED
+}
+
+enum BehaviorKind {
+  POSITIVE
+  NEGATIVE
+}
+
 model School {
   id        String   @id @default(uuid())
   name      String
@@ -33,31 +57,41 @@ model School {
   phone     String?
   address   String?
   addressEn String?
+  timezone  String   @default("Africa/Cairo")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  classes  Class[]
-  students Student[]
-  staff    Staff[]
+  classes            Class[]
+  students           Student[]
+  staff              Staff[]
+  academicYears      AcademicYear[]
+  subjects           Subject[]
+  periods            Period[]
+  behaviorCategories BehaviorCategory[]
 
   @@map("schools")
 }
 
 model Class {
-  id        String   @id @default(uuid())
-  name      String
-  nameEn    String
-  grade     String
-  gradeEn   String
-  schoolId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(uuid())
+  name           String
+  nameEn         String
+  grade          String
+  gradeEn        String
+  schoolId       String
+  academicYearId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  students Student[]
-  teachers Staff[]   @relation("TeacherClasses")
+  school       School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear        @relation(fields: [academicYearId, schoolId], references: [id, schoolId], onDelete: Restrict)
+  students     Student[]
+  assignments  TeacherAssignment[]
 
+  @@unique([id, schoolId])
+  @@unique([schoolId, academicYearId, nameEn])
   @@index([schoolId])
+  @@index([academicYearId])
   @@map("classes")
 }
 
@@ -83,8 +117,8 @@ model Student {
   fullNameEn  String
   gender      Gender
   dateOfBirth DateTime?
+  isActive    Boolean   @default(true)
 
-  // FK Connection to Guardian
   guardianId String
   guardian   Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
 
@@ -94,8 +128,13 @@ model Student {
   updatedAt DateTime @updatedAt
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  class  Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
 
+  class Class @relation(fields: [classId, schoolId], references: [id, schoolId], onDelete: Cascade)
+
+  attendanceRecords AttendanceRecord[]
+  behaviorRecords   BehaviorRecord[]
+
+  @@unique([id, schoolId])
   @@index([guardianId])
   @@index([schoolId, classId])
   @@map("students")
@@ -114,18 +153,215 @@ model Staff {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  classes Class[] @relation("TeacherClasses")
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
+  assignments        TeacherAssignment[]
+  attendanceSessions AttendanceSession[]
+  attendanceRecords  AttendanceRecord[]
+  behaviorRecorded   BehaviorRecord[]    @relation("BehaviorRecordedBy")
+  behaviorVoided     BehaviorRecord[]    @relation("BehaviorVoidedBy")
+
+  @@unique([id, schoolId])
   @@index([email])
   @@index([schoolId])
   @@map("staff")
 }
 
+model AcademicYear {
+  id        String   @id @default(uuid())
+  schoolId  String
+  name      String // 2026/2027
+  nameEn    String
+  startsOn  DateTime @db.Date
+  endsOn    DateTime @db.Date
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classes Class[]
+
+  @@unique([id, schoolId])
+  @@unique([schoolId, nameEn])
+  @@index([schoolId, isCurrent])
+  @@map("academic_years")
+}
+
+model Subject {
+  id        String   @id @default(uuid())
+  schoolId  String
+  name      String
+  nameEn    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school      School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  assignments TeacherAssignment[]
+
+  @@unique([id, schoolId])
+  @@unique([schoolId, nameEn])
+  @@map("subjects")
+}
+
+model Period {
+  id        String   @id @default(uuid())
+  schoolId  String
+  number    Int
+  startTime String   @db.VarChar(5)
+  endTime   String   @db.VarChar(5)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school  School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  entries TimetableEntry[]
+
+  @@unique([id, schoolId])
+  @@unique([schoolId, number])
+  @@map("periods")
+}
+
+model TeacherAssignment {
+  id        String   @id @default(uuid())
+  schoolId  String
+  staffId   String
+  classId   String
+  subjectId String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  staff   Staff   @relation(fields: [staffId, schoolId], references: [id, schoolId], onDelete: Cascade)
+  class   Class   @relation(fields: [classId, schoolId], references: [id, schoolId], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId, schoolId], references: [id, schoolId], onDelete: Restrict)
+
+  entries TimetableEntry[]
+
+  @@unique([id, schoolId, staffId, classId])
+  @@unique([staffId, classId, subjectId])
+  @@index([schoolId, staffId])
+  @@index([classId])
+  @@map("teacher_assignments")
+}
+
+model TimetableEntry {
+  id           String   @id @default(uuid())
+  schoolId     String
+  assignmentId String
+  staffId      String
+  classId      String
+  periodId     String
+  weekday      Weekday
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignment TeacherAssignment @relation(fields: [assignmentId, schoolId, staffId, classId], references: [id, schoolId, staffId, classId], onDelete: Cascade)
+  period     Period            @relation(fields: [periodId, schoolId], references: [id, schoolId], onDelete: Restrict)
+
+  sessions AttendanceSession[]
+
+  @@unique([id, schoolId])
+  @@unique([assignmentId, periodId, weekday])
+  @@index([staffId, weekday])
+  @@index([classId, weekday])
+  @@map("timetable_entries")
+}
+
+model AttendanceSession {
+  id               String                  @id @default(uuid())
+  schoolId         String
+  timetableEntryId String
+  date             DateTime                @db.Date
+  status           AttendanceSessionStatus @default(OPEN)
+  takenById        String
+  submittedAt      DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  timetableEntry TimetableEntry @relation(fields: [timetableEntryId, schoolId], references: [id, schoolId], onDelete: Restrict)
+  takenBy        Staff          @relation(fields: [takenById, schoolId], references: [id, schoolId], onDelete: Restrict)
+
+  records   AttendanceRecord[]
+  behaviors BehaviorRecord[]
+
+  @@unique([id, schoolId])
+  @@unique([timetableEntryId, date])
+  @@index([schoolId, date])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id         String           @id @default(uuid())
+  schoolId   String
+  sessionId  String
+  studentId  String
+  status     AttendanceStatus
+  arrivedAt  DateTime?
+  isExcused  Boolean          @default(false)
+  excuseNote String?
+  markedById String
+  markedAt   DateTime         @default(now())
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  session  AttendanceSession @relation(fields: [sessionId, schoolId], references: [id, schoolId], onDelete: Cascade)
+  student  Student           @relation(fields: [studentId, schoolId], references: [id, schoolId], onDelete: Restrict)
+  markedBy Staff             @relation(fields: [markedById, schoolId], references: [id, schoolId], onDelete: Restrict)
+
+  @@unique([sessionId, studentId])
+  @@index([studentId, markedAt])
+  @@index([schoolId, status])
+  @@map("attendance_records")
+}
+
+model BehaviorCategory {
+  id        String       @id @default(uuid())
+  schoolId  String
+  code      String
+  kind      BehaviorKind
+  points    Int
+  name      String
+  nameEn    String
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  school  School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  records BehaviorRecord[]
+
+  @@unique([id, schoolId])
+  @@unique([schoolId, code])
+  @@map("behavior_categories")
+}
+
+model BehaviorRecord {
+  id         String    @id @default(uuid())
+  schoolId   String
+  studentId  String
+  categoryId String
+  teacherId  String
+  sessionId  String?
+  points     Int
+  createdAt  DateTime  @default(now())
+  voidedAt   DateTime?
+  voidedById String?
+
+  student  Student            @relation(fields: [studentId, schoolId], references: [id, schoolId], onDelete: Restrict)
+  category BehaviorCategory   @relation(fields: [categoryId, schoolId], references: [id, schoolId], onDelete: Restrict)
+  teacher  Staff              @relation("BehaviorRecordedBy", fields: [teacherId, schoolId], references: [id, schoolId], onDelete: Restrict)
+  session  AttendanceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  voidedBy Staff?             @relation("BehaviorVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+
+  @@index([studentId, createdAt])
+  @@index([sessionId])
+  @@index([schoolId, createdAt])
+  @@map("behavior_records")
+}
+
 model OtpVerification {
   id         String   @id @default(uuid())
   identifier String
-  code       String 
+  code       String
   expiresAt  DateTime
   isUsed     Boolean  @default(false)
   createdAt  DateTime @default(now())
