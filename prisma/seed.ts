@@ -1,6 +1,11 @@
 import "dotenv/config";
 import bcrypt from "bcrypt";
-import { Gender, Role } from "../src/generated/prisma/enums.js";
+import {
+  BehaviorKind,
+  Gender,
+  Role,
+  Weekday,
+} from "../src/generated/prisma/enums.js";
 import { PrismaService } from "../src/prisma.service.js";
 
 const prismaService = new PrismaService();
@@ -12,6 +17,45 @@ function requiredEnv(name: string): string {
   }
   return value;
 }
+
+const PERIODS = [
+  { number: 1, startTime: "08:00", endTime: "08:45" },
+  { number: 2, startTime: "09:00", endTime: "09:45" },
+  { number: 3, startTime: "10:00", endTime: "10:45" },
+  { number: 4, startTime: "11:00", endTime: "11:45" },
+  { number: 5, startTime: "12:00", endTime: "12:45" },
+  { number: 6, startTime: "13:00", endTime: "13:45" },
+];
+const SCHOOL_WEEK = [
+  Weekday.SUNDAY,
+  Weekday.MONDAY,
+  Weekday.TUESDAY,
+  Weekday.WEDNESDAY,
+  Weekday.THURSDAY,
+];
+const BEHAVIOR_CATEGORIES = [
+  {
+    code: "PARTICIPATION",
+    kind: BehaviorKind.POSITIVE,
+    points: 5,
+    name: "مشاركة متميزة",
+    nameEn: "Great participation",
+  },
+  {
+    code: "HOMEWORK",
+    kind: BehaviorKind.POSITIVE,
+    points: 5,
+    name: "إنجاز الواجب",
+    nameEn: "Homework done",
+  },
+  {
+    code: "DISTRACTION",
+    kind: BehaviorKind.NEGATIVE,
+    points: -3,
+    name: "تشتت",
+    nameEn: "Distracted",
+  },
+];
 
 function requiredGender(name: string): Gender {
   const value = requiredEnv(name);
@@ -66,10 +110,20 @@ async function seed() {
     const schoolAddressEn = process.env.SEED_SCHOOL_ADDRESS_EN?.trim() || null;
 
     await prismaService.$transaction(async (transaction) => {
+      // الترتيب مهم: سجلات التاريخ (Restrict) الأول، وبعدين الجدول، وبعدين الأساسيات
       await transaction.otpVerification.deleteMany();
+      await transaction.behaviorRecord.deleteMany();
+      await transaction.attendanceRecord.deleteMany();
+      await transaction.attendanceSession.deleteMany();
+      await transaction.timetableEntry.deleteMany();
+      await transaction.teacherAssignment.deleteMany();
+      await transaction.behaviorCategory.deleteMany();
       await transaction.student.deleteMany();
       await transaction.staff.deleteMany();
       await transaction.class.deleteMany();
+      await transaction.academicYear.deleteMany();
+      await transaction.subject.deleteMany();
+      await transaction.period.deleteMany();
       await transaction.guardian.deleteMany();
       await transaction.school.deleteMany();
 
@@ -83,6 +137,33 @@ async function seed() {
         },
       });
 
+      const academicYear = await transaction.academicYear.create({
+        data: {
+          schoolId: school.id,
+          name: "2026/2027",
+          nameEn: "2026/2027",
+          startsOn: new Date("2026-09-20"),
+          endsOn: new Date("2027-06-30"),
+          isCurrent: true,
+        },
+      });
+      const math = await transaction.subject.create({
+        data: { schoolId: school.id, name: "الرياضيات", nameEn: "Mathematics" },
+      });
+      const periods = await Promise.all(
+        PERIODS.map((period) =>
+          transaction.period.create({
+            data: { ...period, schoolId: school.id },
+          }),
+        ),
+      );
+      await transaction.behaviorCategory.createMany({
+        data: BEHAVIOR_CATEGORIES.map((category) => ({
+          ...category,
+          schoolId: school.id,
+        })),
+      });
+
       const class4A = await transaction.class.create({
         data: {
           name: class1NameAr,
@@ -90,6 +171,7 @@ async function seed() {
           grade: class1GradeAr,
           gradeEn: class1GradeEn,
           schoolId: school.id,
+          academicYearId: academicYear.id,
         },
       });
       const class2B = await transaction.class.create({
@@ -99,6 +181,7 @@ async function seed() {
           grade: class2GradeAr,
           gradeEn: class2GradeEn,
           schoolId: school.id,
+          academicYearId: academicYear.id,
         },
       });
 
@@ -111,7 +194,7 @@ async function seed() {
         },
       });
 
-      await transaction.staff.create({
+      const teacher = await transaction.staff.create({
         data: {
           email: teacherEmail,
           password: teacherPassword,
@@ -119,9 +202,40 @@ async function seed() {
           fullNameEn: teacherNameEn,
           role: Role.TEACHER,
           schoolId: school.id,
-          classes: { connect: [{ id: class4A.id }, { id: class2B.id }] },
         },
       });
+
+      const assignments = await Promise.all(
+        [class4A, class2B].map((schoolClass) =>
+          transaction.teacherAssignment.create({
+            data: {
+              schoolId: school.id,
+              staffId: teacher.id,
+              classId: schoolClass.id,
+              subjectId: math.id,
+            },
+          }),
+        ),
+      );
+      const periodByNumber = new Map(periods.map((p) => [p.number, p.id]));
+      const slots = [
+        { assignment: assignments[0], classId: class4A.id, period: 3 },
+        { assignment: assignments[1], classId: class2B.id, period: 4 },
+      ];
+      for (const slot of slots) {
+        for (const weekday of SCHOOL_WEEK) {
+          await transaction.timetableEntry.create({
+            data: {
+              schoolId: school.id,
+              assignmentId: slot.assignment.id,
+              staffId: teacher.id,
+              classId: slot.classId,
+              periodId: periodByNumber.get(slot.period)!,
+              weekday,
+            },
+          });
+        }
+      }
       await transaction.staff.create({
         data: {
           email: adminEmail,
