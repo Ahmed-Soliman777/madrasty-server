@@ -6,6 +6,7 @@ import { PrismaModule } from "./prisma.module.js";
 import { CommonModule } from "./common/common.module.js";
 import { AttendanceModule } from "./attendance/attendance.module.js";
 import { TeacherPortalModule } from "./teacher-portal/teacher-portal.module.js";
+import { BehaviorModule } from "./behavior/behavior.module.js";
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { TeacherPortalModule } from "./teacher-portal/teacher-portal.module.js";
     PrismaModule,
     AttendanceModule,
     TeacherPortalModule,
+    BehaviorModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -4,12 +4,14 @@ import { ClockService } from "../common/clock.service.js";
 import { lessonState, schoolNow } from "../common/school-time.js";
 import type { StaffUser } from "../auth/auth-user.type.js";
 import { PrismaService } from "../prisma.service.js";
+import { BehaviorService } from "../behavior/behavior.service.js";
 
 @Injectable()
 export class TeacherPortalService {
   constructor(
     private prisma: PrismaService,
     private clock: ClockService,
+    private behavior: BehaviorService,
   ) {}
 
   async getQuickPortal(user: StaffUser, requestedEntryId?: string) {
@@ -162,18 +164,10 @@ export class TeacherPortalService {
       }),
     ]);
     const studentIds = students.map((s) => s.id);
-    const pointRows = await this.prisma.behaviorRecord.groupBy({
-      by: ["studentId"],
-      where: {
-        studentId: { in: studentIds },
-        schoolId: user.schoolId,
-        voidedAt: null,
-        createdAt: { gte: focus.yearStartsOn },
-      },
-      _sum: { points: true },
-    });
-    const points = new Map(
-      pointRows.map((r) => [r.studentId, r._sum.points ?? 0]),
+    const points = await this.behavior.totalPoints(
+      studentIds,
+      user.schoolId,
+      focus.yearStartsOn,
     );
     const records = new Map(
       (session?.records ?? []).map((r) => [r.studentId, r]),

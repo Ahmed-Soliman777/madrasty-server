@@ -21,7 +21,6 @@ export type AuthUser = StaffUser | GuardianUser;
 
 export type AuthedRequest = Request & { user?: AuthUser };
 
-// أكواد الأخطاء: الفرونت بيترجمها من messages (errors.<code>) بدل ما يعرض نص السيرفر
 export const AuthErrorCode = {
   TokenMissing: "AUTH_TOKEN_MISSING",
   TokenInvalid: "AUTH_TOKEN_INVALID",
