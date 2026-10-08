@@ -110,12 +110,12 @@ async function seed() {
     const schoolAddressEn = process.env.SEED_SCHOOL_ADDRESS_EN?.trim() || null;
 
     await prismaService.$transaction(async (transaction) => {
-      // الترتيب مهم: سجلات التاريخ (Restrict) الأول، وبعدين الجدول، وبعدين الأساسيات
       await transaction.otpVerification.deleteMany();
       await transaction.behaviorRecord.deleteMany();
       await transaction.attendanceRecord.deleteMany();
       await transaction.attendanceSession.deleteMany();
       await transaction.timetableEntry.deleteMany();
+      await transaction.homework.deleteMany();
       await transaction.teacherAssignment.deleteMany();
       await transaction.behaviorCategory.deleteMany();
       await transaction.student.deleteMany();
@@ -236,6 +236,17 @@ async function seed() {
           });
         }
       }
+      await transaction.homework.create({
+        data: {
+          schoolId: school.id,
+          assignmentId: assignments[0].id,
+          staffId: teacher.id,
+          classId: class4A.id,
+          title: "تمارين صفحة 45 – الضرب في عدد من رقمين",
+          notes: "حل الأسئلة من 1 إلى 10 مع كتابة خطوات التفكير.",
+          dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
       await transaction.staff.create({
         data: {
           email: adminEmail,

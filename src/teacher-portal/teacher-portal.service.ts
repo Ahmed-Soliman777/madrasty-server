@@ -3,8 +3,8 @@ import { apiError } from "../common/api-error.js";
 import { ClockService } from "../common/clock.service.js";
 import { lessonState, schoolNow } from "../common/school-time.js";
 import type { StaffUser } from "../auth/auth-user.type.js";
-import { PrismaService } from "../prisma.service.js";
 import { BehaviorService } from "../behavior/behavior.service.js";
+import { PrismaService } from "../prisma.service.js";
 
 @Injectable()
 export class TeacherPortalService {
@@ -39,6 +39,7 @@ export class TeacherPortalService {
       },
       select: {
         id: true,
+        assignmentId: true,
         period: { select: { number: true, startTime: true, endTime: true } },
         assignment: {
           select: {
@@ -61,6 +62,7 @@ export class TeacherPortalService {
       .sort((a, b) => a.period.number - b.period.number)
       .map((e) => ({
         timetableEntryId: e.id,
+        assignmentId: e.assignmentId,
         state: lessonState(e.period, now.time),
         period: e.period,
         class: {
@@ -114,6 +116,7 @@ export class TeacherPortalService {
       },
       lessons: lessons.map((l) => ({
         timetableEntryId: l.timetableEntryId,
+        assignmentId: l.assignmentId,
         state: l.state,
         period: l.period,
         class: l.class,
