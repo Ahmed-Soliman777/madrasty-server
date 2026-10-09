@@ -31,6 +31,8 @@ enum Weekday {
   TUESDAY
   WEDNESDAY
   THURSDAY
+  FRIDAY
+  SATURDAY
 }
 
 enum AttendanceStatus {
@@ -128,8 +130,7 @@ model Student {
   updatedAt DateTime @updatedAt
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-
-  class Class @relation(fields: [classId, schoolId], references: [id, schoolId], onDelete: Cascade)
+  class  Class  @relation(fields: [classId, schoolId], references: [id, schoolId], onDelete: Cascade)
 
   attendanceRecords AttendanceRecord[]
   behaviorRecords   BehaviorRecord[]
@@ -234,7 +235,8 @@ model TeacherAssignment {
   class   Class   @relation(fields: [classId, schoolId], references: [id, schoolId], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId, schoolId], references: [id, schoolId], onDelete: Restrict)
 
-  entries TimetableEntry[]
+  entries  TimetableEntry[]
+  homework Homework[]
 
   @@unique([id, schoolId, staffId, classId])
   @@unique([staffId, classId, subjectId])
@@ -356,6 +358,26 @@ model BehaviorRecord {
   @@index([sessionId])
   @@index([schoolId, createdAt])
   @@map("behavior_records")
+}
+
+model Homework {
+  id           String    @id @default(uuid())
+  schoolId     String
+  assignmentId String
+  staffId      String
+  classId      String
+  title        String    @db.VarChar(200)
+  notes        String?
+  dueAt        DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  assignment TeacherAssignment @relation(fields: [assignmentId, schoolId, staffId, classId], references: [id, schoolId, staffId, classId], onDelete: Restrict)
+
+  @@index([classId, dueAt])
+  @@index([staffId, dueAt])
+  @@map("homework")
 }
 
 model OtpVerification {

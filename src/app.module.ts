@@ -7,6 +7,7 @@ import { CommonModule } from "./common/common.module.js";
 import { AttendanceModule } from "./attendance/attendance.module.js";
 import { TeacherPortalModule } from "./teacher-portal/teacher-portal.module.js";
 import { BehaviorModule } from "./behavior/behavior.module.js";
+import { HomeworkModule } from "./homework/homework.module.js";
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { BehaviorModule } from "./behavior/behavior.module.js";
     AttendanceModule,
     TeacherPortalModule,
     BehaviorModule,
+    HomeworkModule,
   ],
   controllers: [AppController],
   providers: [AppService],
