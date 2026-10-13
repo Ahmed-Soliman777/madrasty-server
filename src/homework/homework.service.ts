@@ -3,6 +3,7 @@ import { apiError } from "../common/api-error.js";
 import { ClockService } from "../common/clock.service.js";
 import type { StaffUser } from "../auth/auth-user.type.js";
 import { Prisma } from "../generated/prisma/client.js";
+import { NotificationsService } from "../notifications/notifications.service.js";
 import { PrismaService } from "../prisma.service.js";
 import type {
   CreateHomeworkDto,
@@ -63,6 +64,7 @@ export class HomeworkService {
   constructor(
     private prisma: PrismaService,
     private clock: ClockService,
+    private notifications: NotificationsService,
   ) {}
 
   async myAssignments(user: StaffUser) {
@@ -127,29 +129,57 @@ export class HomeworkService {
       where: duplicateWhere,
       select: homeworkSelect,
     });
-    if (existing) return { homework: view(existing), created: false };
+    if (existing) {
+      return {
+        homework: view(existing),
+        created: false,
+        queuedNotifications: 0,
+      };
+    }
     try {
-      const created = await this.prisma.homework.create({
-        data: {
-          schoolId: user.schoolId,
-          assignmentId: dto.assignmentId,
-          staffId: assignment.staffId,
-          classId: assignment.classId,
-          title: dto.title,
-          notes: normalizeNotes(dto.notes),
-          dueAt,
-          createdAt: now,
-        },
-        select: homeworkSelect,
+      const { created, queued } = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.homework.create({
+          data: {
+            schoolId: user.schoolId,
+            assignmentId: dto.assignmentId,
+            staffId: assignment.staffId,
+            classId: assignment.classId,
+            title: dto.title,
+            notes: normalizeNotes(dto.notes),
+            dueAt,
+            createdAt: now,
+          },
+          select: homeworkSelect,
+        });
+        const queued =
+          dto.notifyGuardians === false
+            ? 0
+            : await this.notifications.enqueueHomeworkAssigned(tx, {
+                schoolId: user.schoolId,
+                homeworkId: created.id,
+                classId: assignment.classId,
+                createdById: user.id,
+              });
+        return { created, queued };
       });
-      return { homework: view(created), created: true };
+      return {
+        homework: view(created),
+        created: true,
+        queuedNotifications: queued,
+      };
     } catch (error) {
       if (isUniqueViolation(error)) {
         const winner = await this.prisma.homework.findFirst({
           where: duplicateWhere,
           select: homeworkSelect,
         });
-        if (winner) return { homework: view(winner), created: false };
+        if (winner) {
+          return {
+            homework: view(winner),
+            created: false,
+            queuedNotifications: 0,
+          };
+        }
       }
       throw error;
     }
@@ -330,7 +360,9 @@ export class HomeworkService {
         UUID.test(id)
       )
         return { dueAt, id };
-    } catch {}
+    } catch {
+      /* catch error*/
+    }
     throw apiError(
       HttpStatus.BAD_REQUEST,
       Code.InvalidCursor,

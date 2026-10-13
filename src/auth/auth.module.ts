@@ -6,14 +6,16 @@ import { AuthService } from "./auth.service.js";
 import { AuthGuard } from "./guards/auth.guard.js";
 import { RolesGuard } from "./guards/roles.guard.js";
 import { jwtConfigFactory, TokenService } from "./token.service.js";
-import { WhatsappService } from "./whatsapp.service.js";
+import { WhatsappModule } from "./whatsapp.module.js";
 
 @Module({
-  imports: [JwtModule.registerAsync({ useFactory: jwtConfigFactory })],
+  imports: [
+    JwtModule.registerAsync({ useFactory: jwtConfigFactory }),
+    WhatsappModule,
+  ],
   controllers: [AuthController],
   providers: [
     AuthService,
-    WhatsappService,
     TokenService,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

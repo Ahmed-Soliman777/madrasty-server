@@ -64,6 +64,28 @@ export class WhatsappService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  isConnected(): boolean {
+    return this.connected && !!this.socket;
+  }
+
+  async sendText(
+    phone: string,
+    text: string,
+  ): Promise<"sent" | "invalid_phone" | "not_connected" | "failed"> {
+    const internationalPhone = normalizeEgyptianPhone(phone);
+    if (!internationalPhone) return "invalid_phone";
+    if (!this.socket || !this.connected) return "not_connected";
+    try {
+      await this.socket.sendMessage(`${internationalPhone}@s.whatsapp.net`, {
+        text,
+      });
+      return "sent";
+    } catch (error) {
+      this.logger.error("Failed to send a WhatsApp message", error);
+      return "failed";
+    }
+  }
+
   private async connect(): Promise<void> {
     if (this.shuttingDown) return;
 

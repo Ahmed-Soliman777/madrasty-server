@@ -1,5 +1,6 @@
 import { Transform, Type } from "class-transformer";
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -37,6 +38,10 @@ export class CreateHomeworkDto {
 
   @Matches(ISO_WITH_OFFSET, { message: DUE_MESSAGE })
   dueAt: string;
+
+  @IsOptional()
+  @IsBoolean()
+  notifyGuardians?: boolean;
 }
 
 export class UpdateHomeworkDto {

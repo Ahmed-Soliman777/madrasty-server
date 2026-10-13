@@ -46,6 +46,22 @@ enum AttendanceSessionStatus {
   SUBMITTED
 }
 
+enum NotificationType {
+  HOMEWORK_ASSIGNED
+}
+
+enum NotificationChannel {
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
 enum BehaviorKind {
   POSITIVE
   NEGATIVE
@@ -70,6 +86,8 @@ model School {
   subjects           Subject[]
   periods            Period[]
   behaviorCategories BehaviorCategory[]
+
+  notifications Notification[]
 
   @@map("schools")
 }
@@ -107,6 +125,8 @@ model Guardian {
   updatedAt  DateTime @updatedAt
 
   students Student[]
+
+  notifications Notification[]
 
   @@index([phone])
   @@map("guardians")
@@ -161,6 +181,8 @@ model Staff {
   attendanceRecords  AttendanceRecord[]
   behaviorRecorded   BehaviorRecord[]    @relation("BehaviorRecordedBy")
   behaviorVoided     BehaviorRecord[]    @relation("BehaviorVoidedBy")
+
+  notificationsCreated Notification[]
 
   @@unique([id, schoolId])
   @@index([email])
@@ -355,7 +377,6 @@ model BehaviorRecord {
   voidedBy Staff?             @relation("BehaviorVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
 
   @@index([studentId, createdAt])
-  @@index([sessionId])
   @@index([schoolId, createdAt])
   @@map("behavior_records")
 }
@@ -375,9 +396,42 @@ model Homework {
 
   assignment TeacherAssignment @relation(fields: [assignmentId, schoolId, staffId, classId], references: [id, schoolId, staffId, classId], onDelete: Restrict)
 
+  notifications Notification[]
+
   @@index([classId, dueAt])
   @@index([staffId, dueAt])
   @@map("homework")
+}
+
+model Notification {
+  id           String              @id @default(uuid())
+  schoolId     String
+  type         NotificationType
+  channel      NotificationChannel @default(WHATSAPP)
+  status       NotificationStatus  @default(PENDING)
+  dedupeKey    String              @unique
+  guardianId   String
+  homeworkId   String?
+  createdById  String
+  sendAfter    DateTime
+  attempts     Int                 @default(0)
+  lockedAt     DateTime?
+  statusReason String?
+  sentAt       DateTime?
+  body         String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  guardian  Guardian  @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+  homework  Homework? @relation(fields: [homeworkId], references: [id], onDelete: Restrict)
+  createdBy Staff     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([status, sendAfter])
+  @@index([homeworkId])
+  @@index([guardianId, createdAt])
+  @@index([schoolId, createdAt])
+  @@map("notifications")
 }
 
 model OtpVerification {
