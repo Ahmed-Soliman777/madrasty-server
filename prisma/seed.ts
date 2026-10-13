@@ -111,6 +111,7 @@ async function seed() {
 
     await prismaService.$transaction(async (transaction) => {
       await transaction.otpVerification.deleteMany();
+      await transaction.notification.deleteMany();
       await transaction.behaviorRecord.deleteMany();
       await transaction.attendanceRecord.deleteMany();
       await transaction.attendanceSession.deleteMany();
