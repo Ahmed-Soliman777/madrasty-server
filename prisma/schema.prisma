@@ -48,6 +48,7 @@ enum AttendanceSessionStatus {
 
 enum NotificationType {
   HOMEWORK_ASSIGNED
+  STUDENT_ABSENT
 }
 
 enum NotificationChannel {
@@ -155,6 +156,8 @@ model Student {
   attendanceRecords AttendanceRecord[]
   behaviorRecords   BehaviorRecord[]
 
+  notifications Notification[]
+
   @@unique([id, schoolId])
   @@index([guardianId])
   @@index([schoolId, classId])
@@ -190,10 +193,11 @@ model Staff {
   @@map("staff")
 }
 
+
 model AcademicYear {
   id        String   @id @default(uuid())
   schoolId  String
-  name      String // 2026/2027
+  name      String 
   nameEn    String
   startsOn  DateTime @db.Date
   endsOn    DateTime @db.Date
@@ -307,6 +311,7 @@ model AttendanceSession {
 
   records   AttendanceRecord[]
   behaviors BehaviorRecord[]
+  notifications Notification[]
 
   @@unique([id, schoolId])
   @@unique([timetableEntryId, date])
@@ -412,6 +417,8 @@ model Notification {
   dedupeKey    String              @unique
   guardianId   String
   homeworkId   String?
+  studentId    String?
+  sessionId    String?
   createdById  String
   sendAfter    DateTime
   attempts     Int                 @default(0)
@@ -422,13 +429,16 @@ model Notification {
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
-  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  guardian  Guardian  @relation(fields: [guardianId], references: [id], onDelete: Restrict)
-  homework  Homework? @relation(fields: [homeworkId], references: [id], onDelete: Restrict)
-  createdBy Staff     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  school    School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  guardian  Guardian           @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+  homework  Homework?          @relation(fields: [homeworkId], references: [id], onDelete: Restrict)
+  student   Student?           @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  session   AttendanceSession? @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  createdBy Staff              @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([status, sendAfter])
   @@index([homeworkId])
+  @@index([sessionId])
   @@index([guardianId, createdAt])
   @@index([schoolId, createdAt])
   @@map("notifications")

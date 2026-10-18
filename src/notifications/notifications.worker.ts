@@ -18,7 +18,10 @@ import {
   NOTIFICATIONS_CONFIG,
   type NotificationsConfig,
 } from "./notifications.config.js";
-import { renderHomeworkMessage } from "./notification-templates.js";
+import {
+  renderAbsenceMessage,
+  renderHomeworkMessage,
+} from "./notification-templates.js";
 
 export interface ProcessStats {
   claimed: number;
@@ -156,6 +159,8 @@ export class NotificationsWorker
         attempts: true,
         createdAt: true,
         homeworkId: true,
+        studentId: true,
+        sessionId: true,
         guardian: { select: { phone: true } },
         school: { select: { name: true, nameEn: true, timezone: true } },
       },
@@ -238,7 +243,7 @@ export class NotificationsWorker
     }
   }
 
-  private async prepare(n: {
+  private async prepareHomework(n: {
     homeworkId: string | null;
     guardian: { phone: string };
     school: { name: string; nameEn: string; timezone: string };
@@ -281,6 +286,101 @@ export class NotificationsWorker
           title: hw.title,
           notes: hw.notes,
           dueAt: hw.dueAt,
+        },
+        this.config.locale,
+      ),
+    };
+  }
+
+  private async prepare(n: {
+    type: "HOMEWORK_ASSIGNED" | "STUDENT_ABSENT";
+    homeworkId: string | null;
+    studentId: string | null;
+    sessionId: string | null;
+    guardian: { phone: string };
+    school: { name: string; nameEn: string; timezone: string };
+  }): Promise<Prepared> {
+    return n.type === "HOMEWORK_ASSIGNED"
+      ? this.prepareHomework(n)
+      : this.prepareAbsence(n);
+  }
+
+  private async prepareAbsence(n: {
+    studentId: string | null;
+    sessionId: string | null;
+    guardian: { phone: string };
+    school: { name: string; nameEn: string };
+  }): Promise<Prepared> {
+    const trigger = await this.prisma.attendanceSession.findUnique({
+      where: { id: n.sessionId! },
+      select: { date: true },
+    });
+    const student = await this.prisma.student.findUnique({
+      where: { id: n.studentId! },
+      select: {
+        fullName: true,
+        fullNameEn: true,
+        gender: true,
+        isActive: true,
+        class: { select: { name: true, nameEn: true } },
+      },
+    });
+    if (!trigger || !student)
+      return {
+        kind: "cancel",
+        reason: "the attendance record no longer exists",
+      };
+    if (!student.isActive)
+      return { kind: "cancel", reason: "the student is no longer active" };
+
+    const absences = await this.prisma.attendanceRecord.findMany({
+      where: {
+        studentId: n.studentId!,
+        status: "ABSENT",
+        isExcused: false,
+        session: { date: trigger.date, status: "SUBMITTED" },
+      },
+      select: {
+        session: {
+          select: {
+            timetableEntry: {
+              select: {
+                period: { select: { number: true } },
+                assignment: {
+                  select: { subject: { select: { name: true, nameEn: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (absences.length === 0) {
+      return {
+        kind: "cancel",
+        reason: "no unexcused absence is recorded for that day any more",
+      };
+    }
+    const lessons = absences
+      .map((a) => ({
+        period: a.session.timetableEntry.period.number,
+        subject: {
+          ar: a.session.timetableEntry.assignment.subject.name,
+          en: a.session.timetableEntry.assignment.subject.nameEn,
+        },
+      }))
+      .sort((x, y) => x.period - y.period);
+    return {
+      kind: "send",
+      to: n.guardian.phone,
+      text: renderAbsenceMessage(
+        {
+          school: { ar: n.school.name, en: n.school.nameEn },
+          student: { ar: student.fullName, en: student.fullNameEn },
+          gender: student.gender,
+          className: { ar: student.class.name, en: student.class.nameEn },
+          date: trigger.date,
+          lessons,
         },
         this.config.locale,
       ),

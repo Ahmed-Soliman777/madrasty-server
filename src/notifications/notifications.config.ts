@@ -11,6 +11,7 @@ export interface NotificationsConfig {
   staleLockMs: number;
   maxAgeMs: number;
   unavailableRetryMs: number;
+  absenceDelayMs: number;
   locale: "ar" | "en";
 }
 
@@ -32,5 +33,6 @@ export const notificationsConfigFactory = (): NotificationsConfig => ({
   staleLockMs: 5 * 60_000,
   maxAgeMs: 24 * 60 * 60_000,
   unavailableRetryMs: 30_000,
+  absenceDelayMs: num("NOTIFICATIONS_ABSENCE_DELAY_MS", 10 * 60_000),
   locale: process.env.NOTIFICATIONS_LOCALE === "en" ? "en" : "ar",
 });
