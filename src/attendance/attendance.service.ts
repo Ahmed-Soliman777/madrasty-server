@@ -5,6 +5,7 @@ import { schoolNow } from "../common/school-time.js";
 import type { StaffUser } from "../auth/auth-user.type.js";
 import { Prisma } from "../generated/prisma/client.js";
 import type { AttendanceStatus } from "../generated/prisma/enums.js";
+import { NotificationsService } from "../notifications/notifications.service.js";
 import { PrismaService } from "../prisma.service.js";
 import { AttendanceErrorCode as Code } from "./attendance.errors.js";
 
@@ -49,6 +50,7 @@ export class AttendanceService {
   constructor(
     private prisma: PrismaService,
     private clock: ClockService,
+    private notifications: NotificationsService,
   ) {}
 
   async openSession(user: StaffUser, timetableEntryId: string) {
@@ -262,7 +264,11 @@ export class AttendanceService {
       };
 
       if (session.status === "SUBMITTED")
-        return { session: sessionView(session), summary };
+        return {
+          session: sessionView(session),
+          summary,
+          queuedNotifications: 0,
+        };
 
       const marked = new Set(records.map((r) => r.studentId));
       const unmarked = students
@@ -283,7 +289,28 @@ export class AttendanceService {
         where: { id: sessionId },
         data: { status: "SUBMITTED", submittedAt: this.clock.now() },
       });
-      return { session: sessionView(submitted), summary };
+
+      const absentIds = records
+        .filter((r) => r.status === "ABSENT")
+        .map((r) => r.studentId);
+      const absentStudents = absentIds.length
+        ? await tx.student.findMany({
+            where: { id: { in: absentIds }, schoolId: user.schoolId },
+            select: { id: true, guardianId: true },
+          })
+        : [];
+      const queued = await this.notifications.enqueueStudentAbsences(tx, {
+        schoolId: user.schoolId,
+        sessionId,
+        sessionDate: session.date,
+        createdById: user.id,
+        students: absentStudents,
+      });
+      return {
+        session: sessionView(submitted),
+        summary,
+        queuedNotifications: queued,
+      };
     });
   }
 
