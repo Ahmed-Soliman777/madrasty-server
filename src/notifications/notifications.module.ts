@@ -11,12 +11,16 @@ import {
 } from "./notifications.config.js";
 import { NotificationsService } from "./notifications.service.js";
 import { NotificationsWorker } from "./notifications.worker.js";
+import { CommunicationLogController } from "./communication-log.controller.js";
+import { CommunicationLogService } from "./communication-log.service.js";
 
 @Module({
   imports: [WhatsappModule],
+  controllers: [CommunicationLogController],
   providers: [
     NotificationsService,
     NotificationsWorker,
+    CommunicationLogService,
     WhatsappChannel,
     { provide: NOTIFICATIONS_CONFIG, useFactory: notificationsConfigFactory },
     {
