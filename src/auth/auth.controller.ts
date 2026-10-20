@@ -12,7 +12,7 @@ import {
   StaffAuthLoginDto,
 } from "./dtos/auth-login-dto.js";
 import { AuthService } from "./auth.service.js";
-import type { AuthUser } from "./auth-user.type.js";
+import type { AuthUser, GuardianUser } from "./auth-user.type.js";
 import { CurrentUser } from "./decorators/current-user.decorator.js";
 import { Public } from "./decorators/public.decorator.js";
 import { ANY_ROLE, Roles } from "./decorators/roles.decorator.js";
@@ -37,6 +37,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   staffLogin(@Body() staffAuthLoginDto: StaffAuthLoginDto) {
     return this.authService.StaffLogin(staffAuthLoginDto);
+  }
+  @Roles("guardian")
+  @Get("/guardian/portal")
+  guardianPortal(@CurrentUser() user: GuardianUser) {
+    return this.authService.guardianPortal(user.id);
   }
   @Roles(...ANY_ROLE)
   @Get("/me")
