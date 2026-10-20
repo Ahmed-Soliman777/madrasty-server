@@ -195,9 +195,11 @@ export class AuthService {
     if (!guardian) throw new UnauthorizedException("Guardian account not found");
 
     const classIds = [...new Set(guardian.students.map((student) => student.classId))];
+    const schoolIds = [...new Set(guardian.students.map((student) => student.schoolId))];
     const homework = classIds.length
       ? await this.prisma.homework.findMany({
           where: {
+            schoolId: { in: schoolIds },
             classId: { in: classIds },
             deletedAt: null,
           },
