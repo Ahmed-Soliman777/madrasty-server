@@ -166,6 +166,7 @@ export class AuthService {
               },
             },
             attendanceRecords: {
+              where: { session: { is: { status: "SUBMITTED" } } },
               orderBy: { session: { date: "desc" } },
               take: 30,
               select: {
