@@ -141,6 +141,124 @@ export class AuthService {
     };
   }
 
+  async guardianPortal(guardianId: string) {
+    const guardian = await this.prisma.guardian.findUnique({
+      where: { id: guardianId },
+      select: {
+        id: true,
+        fullName: true,
+        fullNameEn: true,
+        students: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            fullName: true,
+            fullNameEn: true,
+            schoolId: true,
+            classId: true,
+            class: {
+              select: {
+                name: true,
+                nameEn: true,
+                grade: true,
+                gradeEn: true,
+                academicYear: { select: { startsOn: true } },
+              },
+            },
+            attendanceRecords: {
+              where: { session: { is: { status: "SUBMITTED" } } },
+              orderBy: { session: { date: "desc" } },
+              take: 30,
+              select: {
+                id: true,
+                status: true,
+                arrivedAt: true,
+                session: { select: { date: true } },
+              },
+            },
+            behaviorRecords: {
+              where: { voidedAt: null },
+              orderBy: { createdAt: "desc" },
+              take: 30,
+              select: {
+                id: true,
+                points: true,
+                createdAt: true,
+                category: { select: { name: true, nameEn: true, kind: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!guardian) throw new UnauthorizedException("Guardian account not found");
+
+    const classIds = [...new Set(guardian.students.map((student) => student.classId))];
+    const schoolIds = [...new Set(guardian.students.map((student) => student.schoolId))];
+    const homework = classIds.length
+      ? await this.prisma.homework.findMany({
+          where: {
+            schoolId: { in: schoolIds },
+            classId: { in: classIds },
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            classId: true,
+            title: true,
+            dueAt: true,
+            createdAt: true,
+          },
+          orderBy: { dueAt: "asc" },
+        })
+      : [];
+
+    const homeworkByClass = new Map<string, typeof homework>();
+    for (const item of homework) {
+      const existing = homeworkByClass.get(item.classId) ?? [];
+      existing.push(item);
+      homeworkByClass.set(item.classId, existing);
+    }
+
+    return {
+      guardian: {
+        id: guardian.id,
+        fullName: guardian.fullName,
+        fullNameEn: guardian.fullNameEn,
+      },
+      students: guardian.students.map((student) => ({
+        id: student.id,
+        fullName: student.fullName,
+        fullNameEn: student.fullNameEn,
+        grade: student.class.grade,
+        gradeEn: student.class.gradeEn,
+        className: student.class.name,
+        classNameEn: student.class.nameEn,
+        attendanceRecords: student.attendanceRecords.map((record) => ({
+          id: record.id,
+          date: record.session.date.toISOString().slice(0, 10),
+          status: record.status,
+          arrivedAt: record.arrivedAt?.toISOString() ?? null,
+        })),
+        behaviorRecords: student.behaviorRecords.map((record) => ({
+          id: record.id,
+          categoryName: record.category.name,
+          categoryNameEn: record.category.nameEn,
+          kind: record.category.kind,
+          points: record.points,
+          createdAt: record.createdAt.toISOString(),
+        })),
+        homework: (homeworkByClass.get(student.classId) ?? []).map((item) => ({
+          id: item.id,
+          title: item.title,
+          dueAt: item.dueAt.toISOString(),
+          createdAt: item.createdAt.toISOString(),
+        })),
+      })),
+    };
+  }
+
   async StaffLogin({ email, password }: StaffAuthLoginDto) {
     if (!email || !password) {
       throw new BadRequestException("Please enter login credentials");

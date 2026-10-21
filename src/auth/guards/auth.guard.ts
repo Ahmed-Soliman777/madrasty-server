@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -34,7 +35,21 @@ export class AuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<AuthedRequest>();
-    const token = this.extractBearerToken(request);
+    const origin = request.headers.origin;
+    if (origin && !["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())) {
+      const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? "http://localhost:3000")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (!allowedOrigins.includes(origin)) {
+        throw new ForbiddenException({
+          code: "ORIGIN_NOT_ALLOWED",
+          message: "Cross-origin request rejected",
+        });
+      }
+    }
+
+    const token = this.extractToken(request);
     if (!token) {
       throw unauthorized(AuthErrorCode.TokenMissing, "Authentication required");
     }
@@ -53,13 +68,28 @@ export class AuthGuard implements CanActivate {
     return true;
   }
 
-  private extractBearerToken(request: AuthedRequest): string | undefined {
-    const [scheme, token] = (request.headers.authorization ?? "").split(" ");
-    return scheme?.toLowerCase() === "bearer" && token ? token : undefined;
+  private extractToken(request: AuthedRequest): string | undefined {
+    const [scheme, bearerToken] = (request.headers.authorization ?? "").split(" ");
+    if (scheme?.toLowerCase() === "bearer" && bearerToken) return bearerToken;
+
+    const cookieHeader = request.headers.cookie;
+    if (!cookieHeader) return undefined;
+
+    const cookie = cookieHeader
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("accessToken="));
+    if (!cookie) return undefined;
+
+    const value = cookie.slice("accessToken=".length);
+    try {
+      return decodeURIComponent(value) || undefined;
+    } catch {
+      return value || undefined;
+    }
   }
 
   private async resolveUser(claims: AccessTokenClaims): Promise<AuthUser> {
-    // tokens القديمة (قبل التوحيد) مفيهاش type، بس role = "guardian"
     if (claims.role === "guardian") {
       return {
         type: "guardian",
@@ -69,8 +99,6 @@ export class AuthGuard implements CanActivate {
       };
     }
 
-    // الـ staff: الدور والمدرسة والتفعيل بيتقروا من الداتابيز (PK lookup) مش من الـ token،
-    // فتعطيل معلم أو تغيير دوره بيسري فوراً حتى لو الـ token لسه صالح
     const staff = await this.prisma.staff.findUnique({
       where: { id: claims.sub },
       select: { id: true, role: true, schoolId: true, isActive: true },
