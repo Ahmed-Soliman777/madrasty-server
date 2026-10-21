@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -34,6 +35,20 @@ export class AuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<AuthedRequest>();
+    const origin = request.headers.origin;
+    if (origin && !["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())) {
+      const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? "http://localhost:3000")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (!allowedOrigins.includes(origin)) {
+        throw new ForbiddenException({
+          code: "ORIGIN_NOT_ALLOWED",
+          message: "Cross-origin request rejected",
+        });
+      }
+    }
+
     const token = this.extractToken(request);
     if (!token) {
       throw unauthorized(AuthErrorCode.TokenMissing, "Authentication required");
