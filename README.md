@@ -48,7 +48,11 @@ $ npm run start:prod
 
 Set `DATABASE_URL` and a strong `JWT_SECRET` in the server environment before starting the API. Run `npm run start:dev` from `madrasty-server`. On first startup, the server prints a WhatsApp QR code in that terminal. In WhatsApp, open **Linked devices**, choose **Link a device**, and scan the QR code. Baileys saves the linked session in `baileys_auth_info`; subsequent starts reuse it. Keep that directory private and out of source control. If the account is logged out, remove the directory and restart to pair again.
 
-The API accepts guardian OTP requests at `POST /auth/guardian/request-otp` and OTP verification at `POST /auth/guardian/verify-otp` (the existing `/api/auth` prefix remains available as an alias).
+The API accepts guardian OTP requests at `POST /auth/guardian/request-otp`, OTP verification at `POST /auth/guardian/verify-otp`, staff login at `POST /auth/staff/login`, and logout at `POST /auth/logout` (the existing `/api/auth` prefix remains available as an alias).
+
+For browser clients, send `X-Client-Type: web` and include credentials. Successful guardian and staff login responses set an HttpOnly `accessToken` cookie and omit the token from the JSON response. Native/mobile clients should omit that header and receive the access token in the JSON response for use as a Bearer token. Authenticated endpoints accept either a Bearer token or the HttpOnly session cookie.
+
+Set `FRONTEND_ORIGINS` to a comma-separated allowlist of browser origins (for example `http://localhost:3000`). Optionally set `AUTH_COOKIE_DOMAIN` to a shared parent domain when frontend and API are deployed on separate subdomains. `JWT_EXPIRES_IN_SECONDS` controls both token and cookie lifetime.
 
 ## Run tests
 
