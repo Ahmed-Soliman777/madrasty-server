@@ -28,19 +28,22 @@ export class AuthService {
   }
 
   async requestGuardianOtp({ NationalId }: GuardianRequestOtpDto) {
-    if (!/^\d{14}$/.test(NationalId)) {
+    if (!/^\\d{14}$/.test(NationalId)) {
       throw new BadRequestException("Enter a valid 14-digit national ID");
     }
 
     const student = await this.prisma.student.findUnique({
       where: { nationalId: NationalId },
-      select: { guardian: { select: { phone: true } } },
+      select: {
+        id: true,
+        guardian: { select: { phone: true } },
+      },
     });
 
     const phoneDigits = student
       ? normalizeEgyptianPhone(student.guardian.phone)
       : null;
-    if (!phoneDigits) throw new UnauthorizedException("Invalid login details");
+    if (!phoneDigits || !student) throw new UnauthorizedException("Invalid login details");
 
     const phone = `+${phoneDigits}`;
     await this.prisma.otpVerification.updateMany({
@@ -71,12 +74,13 @@ export class AuthService {
       message: "OTP sent via WhatsApp",
       phone,
       maskedPhone: `${localPhone.slice(0, 3)}****${localPhone.slice(-4)}`,
+      studentId: student.id,
     };
   }
 
   async verifyGuardianOtp({ phone, LoginOTP }: GuardianVerifyOtpDto) {
     const phoneDigits = normalizeEgyptianPhone(phone);
-    if (!phoneDigits || !/^\d{6}$/.test(LoginOTP)) {
+    if (!phoneDigits || !/^\\d{6}$/.test(LoginOTP)) {
       throw new UnauthorizedException("Invalid or expired OTP");
     }
 
