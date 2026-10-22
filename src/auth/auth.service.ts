@@ -34,13 +34,17 @@ export class AuthService {
 
     const student = await this.prisma.student.findUnique({
       where: { nationalId: NationalId },
-      select: { guardian: { select: { phone: true } } },
+      select: {
+        id: true,
+        nationalId: true,
+        guardian: { select: { phone: true } },
+      },
     });
 
     const phoneDigits = student
       ? normalizeEgyptianPhone(student.guardian.phone)
       : null;
-    if (!phoneDigits) throw new UnauthorizedException("Invalid login details");
+    if (!phoneDigits || !student) throw new UnauthorizedException("Invalid login details");
 
     const phone = `+${phoneDigits}`;
     await this.prisma.otpVerification.updateMany({
@@ -71,6 +75,7 @@ export class AuthService {
       message: "OTP sent via WhatsApp",
       phone,
       maskedPhone: `${localPhone.slice(0, 3)}****${localPhone.slice(-4)}`,
+      nationalId: student.nationalId,
     };
   }
 
@@ -152,6 +157,7 @@ export class AuthService {
           where: { isActive: true },
           select: {
             id: true,
+            nationalId: true,
             fullName: true,
             fullNameEn: true,
             schoolId: true,
@@ -229,6 +235,7 @@ export class AuthService {
       },
       students: guardian.students.map((student) => ({
         id: student.id,
+        nationalId: student.nationalId,
         fullName: student.fullName,
         fullNameEn: student.fullNameEn,
         grade: student.class.grade,
