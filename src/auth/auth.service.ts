@@ -36,6 +36,7 @@ export class AuthService {
       where: { nationalId: NationalId },
       select: {
         id: true,
+        nationalId: true,
         guardian: { select: { phone: true } },
       },
     });
@@ -74,7 +75,7 @@ export class AuthService {
       message: "OTP sent via WhatsApp",
       phone,
       maskedPhone: `${localPhone.slice(0, 3)}****${localPhone.slice(-4)}`,
-      studentId: student.id,
+      nationalId: student.nationalId,
     };
   }
 
@@ -156,6 +157,7 @@ export class AuthService {
           where: { isActive: true },
           select: {
             id: true,
+            nationalId: true,
             fullName: true,
             fullNameEn: true,
             schoolId: true,
@@ -233,6 +235,7 @@ export class AuthService {
       },
       students: guardian.students.map((student) => ({
         id: student.id,
+        nationalId: student.nationalId,
         fullName: student.fullName,
         fullNameEn: student.fullNameEn,
         grade: student.class.grade,
