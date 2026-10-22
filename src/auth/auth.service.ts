@@ -28,7 +28,7 @@ export class AuthService {
   }
 
   async requestGuardianOtp({ NationalId }: GuardianRequestOtpDto) {
-    if (!/^\\d{14}$/.test(NationalId)) {
+    if (!/^\d{14}$/.test(NationalId)) {
       throw new BadRequestException("Enter a valid 14-digit national ID");
     }
 
@@ -80,7 +80,7 @@ export class AuthService {
 
   async verifyGuardianOtp({ phone, LoginOTP }: GuardianVerifyOtpDto) {
     const phoneDigits = normalizeEgyptianPhone(phone);
-    if (!phoneDigits || !/^\\d{6}$/.test(LoginOTP)) {
+    if (!phoneDigits || !/^\d{6}$/.test(LoginOTP)) {
       throw new UnauthorizedException("Invalid or expired OTP");
     }
 
