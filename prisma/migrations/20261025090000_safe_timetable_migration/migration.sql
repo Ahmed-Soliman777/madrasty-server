@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Safe, additive migration for versioned timetables.
 -- Existing TimetableEntry IDs are preserved so AttendanceSession relations remain valid.
 -- Conflict-specific unique indexes are intentionally deferred until the legacy audit is reviewed.
@@ -161,3 +163,5 @@ ON "timetable_entries"("timetableId");
 -- until the preflight report has been reviewed and legacy conflicts resolved.
 ALTER TABLE "timetable_entries"
 DROP CONSTRAINT IF EXISTS "timetable_entries_assignmentId_periodId_weekday_key";
+
+COMMIT;
