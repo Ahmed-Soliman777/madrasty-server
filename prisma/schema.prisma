@@ -68,6 +68,20 @@ enum BehaviorKind {
   NEGATIVE
 }
 
+enum TimetableStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TimetableGenerationJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
 model School {
   id        String   @id @default(uuid())
   name      String
@@ -87,6 +101,7 @@ model School {
   subjects           Subject[]
   periods            Period[]
   behaviorCategories BehaviorCategory[]
+  timetables          Timetable[]
 
   notifications Notification[]
 
@@ -185,7 +200,10 @@ model Staff {
   behaviorRecorded   BehaviorRecord[]    @relation("BehaviorRecordedBy")
   behaviorVoided     BehaviorRecord[]    @relation("BehaviorVoidedBy")
 
-  notificationsCreated Notification[]
+  notificationsCreated   Notification[]
+  timetablesCreated       Timetable[] @relation("TimetableCreatedBy")
+  timetablesApproved      Timetable[] @relation("TimetableApprovedBy")
+  timetableGenerationJobs TimetableGenerationJob[]
 
   @@unique([id, schoolId])
   @@index([email])
@@ -206,7 +224,8 @@ model AcademicYear {
   updatedAt DateTime @updatedAt
 
   school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  classes Class[]
+  classes    Class[]
+  timetables Timetable[]
 
   @@unique([id, schoolId])
   @@unique([schoolId, nameEn])
@@ -253,9 +272,10 @@ model TeacherAssignment {
   staffId   String
   classId   String
   subjectId String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive       Boolean  @default(true)
+  lessonsPerWeek Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   staff   Staff   @relation(fields: [staffId, schoolId], references: [id, schoolId], onDelete: Cascade)
   class   Class   @relation(fields: [classId, schoolId], references: [id, schoolId], onDelete: Cascade)
@@ -271,8 +291,57 @@ model TeacherAssignment {
   @@map("teacher_assignments")
 }
 
+model Timetable {
+  id             String          @id @default(uuid())
+  schoolId       String
+  academicYearId String
+  version        Int
+  status         TimetableStatus @default(DRAFT)
+  createdById    String?
+  approvedById   String?
+  approvedAt     DateTime?
+  publishedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  school         School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYear   AcademicYear @relation(fields: [academicYearId, schoolId], references: [id, schoolId], onDelete: Restrict)
+  createdBy      Staff?       @relation("TimetableCreatedBy", fields: [createdById, schoolId], references: [id, schoolId], onDelete: Restrict)
+  approvedBy     Staff?       @relation("TimetableApprovedBy", fields: [approvedById, schoolId], references: [id, schoolId], onDelete: Restrict)
+  entries        TimetableEntry[]
+  generationJobs TimetableGenerationJob[]
+
+  @@unique([id, schoolId])
+  @@unique([schoolId, academicYearId, version])
+  @@index([schoolId, academicYearId, status])
+  @@map("timetables")
+}
+
+model TimetableGenerationJob {
+  id               String                      @id @default(uuid())
+  schoolId         String
+  timetableId      String
+  status           TimetableGenerationJobStatus @default(QUEUED)
+  algorithmVersion String
+  requestedById    String
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  errorCode        String?
+  resultSummary    Json?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+
+  timetable   Timetable @relation(fields: [timetableId, schoolId], references: [id, schoolId], onDelete: Cascade)
+  requestedBy Staff     @relation(fields: [requestedById, schoolId], references: [id, schoolId], onDelete: Restrict)
+
+  @@index([schoolId, timetableId, createdAt])
+  @@index([status, createdAt])
+  @@map("timetable_generation_jobs")
+}
+
 model TimetableEntry {
   id           String   @id @default(uuid())
+  timetableId  String
   schoolId     String
   assignmentId String
   staffId      String
@@ -283,13 +352,14 @@ model TimetableEntry {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  timetable  Timetable         @relation(fields: [timetableId, schoolId], references: [id, schoolId], onDelete: Restrict)
   assignment TeacherAssignment @relation(fields: [assignmentId, schoolId, staffId, classId], references: [id, schoolId, staffId, classId], onDelete: Cascade)
   period     Period            @relation(fields: [periodId, schoolId], references: [id, schoolId], onDelete: Restrict)
 
   sessions AttendanceSession[]
 
   @@unique([id, schoolId])
-  @@unique([assignmentId, periodId, weekday])
+  @@index([timetableId])
   @@index([staffId, weekday])
   @@index([classId, weekday])
   @@map("timetable_entries")
