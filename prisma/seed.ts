@@ -116,6 +116,8 @@ async function seed() {
       await transaction.attendanceRecord.deleteMany();
       await transaction.attendanceSession.deleteMany();
       await transaction.timetableEntry.deleteMany();
+      await transaction.timetableGenerationJob.deleteMany();
+      await transaction.timetable.deleteMany();
       await transaction.homework.deleteMany();
       await transaction.teacherAssignment.deleteMany();
       await transaction.behaviorCategory.deleteMany();
@@ -214,10 +216,19 @@ async function seed() {
               staffId: teacher.id,
               classId: schoolClass.id,
               subjectId: math.id,
+              lessonsPerWeek: 5,
             },
           }),
         ),
       );
+      const timetable = await transaction.timetable.create({
+        data: {
+          schoolId: school.id,
+          academicYearId: academicYear.id,
+          version: 1,
+          status: "DRAFT",
+        },
+      });
       const periodByNumber = new Map(periods.map((p) => [p.number, p.id]));
       const slots = [
         { assignment: assignments[0], classId: class4A.id, period: 3 },
@@ -228,6 +239,7 @@ async function seed() {
           await transaction.timetableEntry.create({
             data: {
               schoolId: school.id,
+              timetableId: timetable.id,
               assignmentId: slot.assignment.id,
               staffId: teacher.id,
               classId: slot.classId,
