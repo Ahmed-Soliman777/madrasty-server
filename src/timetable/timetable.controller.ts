@@ -73,6 +73,16 @@ export class TimetableController {
     return this.timetableService.updateEntry(user, id, entryId, dto.periodId, dto.weekday);
   }
 
+  @Delete(":id/entries/:entryId")
+  @Roles("SCHOOL_ADMIN")
+  deleteEntry(
+    @CurrentUser() user: StaffUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("entryId", ParseUUIDPipe) entryId: string,
+  ) {
+    return this.timetableService.deleteEntry(user, id, entryId);
+  }
+
   @Post(":id/publish")
   @Roles("SCHOOL_ADMIN")
   publish(
