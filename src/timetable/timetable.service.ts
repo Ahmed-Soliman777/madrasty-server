@@ -197,6 +197,29 @@ export class TimetableService {
     return { entry: updated, conflictCheck: { hasConflicts: false, checkedTeacherAndClass: true } };
   }
 
+  async deleteEntry(user: StaffUser, timetableId: string, entryId: string) {
+    this.assertSchoolAdmin(user);
+    const timetable = await this.prisma.timetable.findFirst({ where: { id: timetableId, schoolId: user.schoolId } });
+    if (!timetable) throw new NotFoundException({ code: "TIMETABLE_NOT_FOUND", message: "Timetable not found" });
+    if (timetable.status !== TimetableStatus.DRAFT) throw new ConflictException({ code: "TIMETABLE_NOT_DRAFT", message: "Only draft timetables can be edited" });
+    const entry = await this.prisma.timetableEntry.findFirst({ where: { id: entryId, timetableId, schoolId: user.schoolId, isActive: true } });
+    if (!entry) throw new NotFoundException({ code: "TIMETABLE_ENTRY_NOT_FOUND", message: "Timetable entry not found" });
+    const sessions = await this.prisma.attendanceSession.count({ where: { timetableEntryId: entryId } });
+    if (sessions) throw new ConflictException({ code: "TIMETABLE_ENTRY_HAS_ATTENDANCE", message: "This lesson has attendance history and cannot be deleted" });
+    await this.prisma.timetableEntry.delete({ where: { id: entryId } });
+    const remaining = await this.prisma.timetableEntry.count({ where: { timetableId, assignmentId: entry.assignmentId, isActive: true } });
+    const assignment = await this.prisma.teacherAssignment.findUnique({ where: { id: entry.assignmentId }, select: { lessonsPerWeek: true } });
+    return {
+      deleted: true,
+      entryId,
+      assignment: {
+        requiredLessons: assignment?.lessonsPerWeek ?? null,
+        placedLessons: remaining,
+        hasMissingLessons: assignment?.lessonsPerWeek != null && remaining < assignment.lessonsPerWeek,
+      },
+    };
+  }
+
   async publish(user: StaffUser, timetableId: string) {
     this.assertSchoolAdmin(user);
     return this.prisma.$transaction(async (tx) => {
