@@ -1,7 +1,6 @@
 import {
   ConflictException,
   ForbiddenException,
-  HttpStatus,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -9,7 +8,6 @@ import {
 import { Prisma } from "../generated/prisma/client.js";
 import { TimetableStatus, Weekday } from "../generated/prisma/enums.js";
 import type { GuardianUser, StaffUser } from "../auth/auth-user.type.js";
-import { apiError } from "../common/api-error.js";
 import { PrismaService } from "../prisma.service.js";
 
 const SCHOOL_DAYS: Weekday[] = [
@@ -21,9 +19,13 @@ const SCHOOL_DAYS: Weekday[] = [
 ];
 const ENTRY_INCLUDE = {
   period: { select: { id: true, number: true, startTime: true, endTime: true } },
-  assignment: { select: { subject: { select: { name: true, nameEn: true } } } },
-  class: { select: { id: true, name: true, nameEn: true, grade: true, gradeEn: true } },
-  staff: { select: { id: true, fullName: true, fullNameEn: true } },
+  assignment: {
+    select: {
+      subject: { select: { name: true, nameEn: true } },
+      class: { select: { id: true, name: true, nameEn: true, grade: true, gradeEn: true } },
+      staff: { select: { id: true, fullName: true, fullNameEn: true } },
+    },
+  },
 } satisfies Prisma.TimetableEntryInclude;
 
 @Injectable()
@@ -177,13 +179,13 @@ export class TimetableService {
         timetableId, schoolId: user.schoolId, isActive: true, id: { not: entryId }, weekday, periodId,
         OR: [{ staffId: entry.staffId }, { classId: entry.classId }],
       },
-      include: { staff: { select: { fullName: true } }, class: { select: { name: true } }, period: { select: { number: true } } },
+      include: { assignment: { select: { staff: { select: { fullName: true } }, class: { select: { name: true } } } }, period: { select: { number: true } } },
     });
     if (collisions.length) {
       throw new ConflictException({
         code: "TIMETABLE_EDIT_CONFLICT",
         message: "This change conflicts with another lesson for the same teacher or class",
-        conflicts: collisions.map((item) => ({ entryId: item.id, teacher: item.staff.fullName, className: item.class.name, period: item.period.number, weekday: item.weekday })),
+        conflicts: collisions.map((item) => ({ entryId: item.id, teacher: item.assignment.staff.fullName, className: item.assignment.class.name, period: item.period.number, weekday: item.weekday })),
       });
     }
 
