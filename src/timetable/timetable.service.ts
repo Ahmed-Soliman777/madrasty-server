@@ -38,6 +38,15 @@ export class TimetableService {
     }
   }
 
+  async listAcademicYears(user: StaffUser) {
+    this.assertSchoolAdmin(user);
+    return this.prisma.academicYear.findMany({
+      where: { schoolId: user.schoolId },
+      select: { id: true, name: true, nameEn: true, isCurrent: true },
+      orderBy: [{ isCurrent: "desc" }, { name: "desc" }],
+    });
+  }
+
   async listSchoolTimetables(user: StaffUser, academicYearId?: string) {
     this.assertSchoolAdmin(user);
     return this.prisma.timetable.findMany({
