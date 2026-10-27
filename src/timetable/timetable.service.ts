@@ -47,6 +47,15 @@ export class TimetableService {
     });
   }
 
+  async listPeriods(user: StaffUser) {
+    this.assertSchoolAdmin(user);
+    return this.prisma.period.findMany({
+      where: { schoolId: user.schoolId },
+      select: { id: true, number: true, startTime: true, endTime: true },
+      orderBy: { number: "asc" },
+    });
+  }
+
   async listSchoolTimetables(user: StaffUser, academicYearId?: string) {
     this.assertSchoolAdmin(user);
     return this.prisma.timetable.findMany({
