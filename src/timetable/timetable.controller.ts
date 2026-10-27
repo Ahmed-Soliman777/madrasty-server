@@ -26,6 +26,12 @@ export class TimetableController {
     return this.timetableService.listAcademicYears(user);
   }
 
+  @Get("periods")
+  @Roles("SCHOOL_ADMIN")
+  listPeriods(@CurrentUser() user: StaffUser) {
+    return this.timetableService.listPeriods(user);
+  }
+
   @Get()
   @Roles("SCHOOL_ADMIN")
   list(
