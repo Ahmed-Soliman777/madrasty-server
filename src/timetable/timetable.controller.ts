@@ -20,6 +20,12 @@ import { TimetableService } from "./timetable.service.js";
 export class TimetableController {
   constructor(private readonly timetableService: TimetableService) {}
 
+  @Get("academic-years")
+  @Roles("SCHOOL_ADMIN")
+  listAcademicYears(@CurrentUser() user: StaffUser) {
+    return this.timetableService.listAcademicYears(user);
+  }
+
   @Get()
   @Roles("SCHOOL_ADMIN")
   list(
