@@ -9,6 +9,7 @@ import { HomeworkModule } from "./homework/homework.module.js";
 import { NotificationsModule } from "./notifications/notifications.module.js";
 import { PrismaModule } from "./prisma.module.js";
 import { TeacherPortalModule } from "./teacher-portal/teacher-portal.module.js";
+import { TimetableModule } from "./timetable/timetable.module.js";
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { TeacherPortalModule } from "./teacher-portal/teacher-portal.module.js";
     HomeworkModule,
     NotificationsModule,
     TeacherPortalModule,
+    TimetableModule,
   ],
   controllers: [AppController],
   providers: [AppService],
