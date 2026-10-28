@@ -171,7 +171,7 @@ export class TimetableService {
           timetableId: timetable.id,
           requestedById: user.id,
           algorithmVersion: "greedy-v1",
-          status: missing.length ? "SUCCEEDED" : "SUCCEEDED",
+          status: "SUCCEEDED",
           resultSummary: { requestedLessons, placedLessons: planned.length, missingLessons: missing.reduce((sum, item) => sum + item.requested - item.placed, 0), missing },
           startedAt: new Date(),
           finishedAt: new Date(),
@@ -200,10 +200,51 @@ export class TimetableService {
       include: { assignment: { select: { staff: { select: { fullName: true } }, class: { select: { name: true } } } }, period: { select: { number: true } } },
     });
     if (collisions.length) {
+      const periods = await this.prisma.period.findMany({
+        where: { schoolId: user.schoolId },
+        select: { id: true, number: true, startTime: true, endTime: true },
+        orderBy: { number: "asc" },
+      });
+      const suggestions: Array<{ weekday: Weekday; periodId: string; periodNumber: number; startTime: string; endTime: string }> = [];
+      for (const candidateDay of SCHOOL_DAYS) {
+        for (const candidatePeriod of periods) {
+          if (candidateDay === weekday && candidatePeriod.id === periodId) continue;
+          const conflict = await this.prisma.timetableEntry.findFirst({
+            where: {
+              timetableId,
+              schoolId: user.schoolId,
+              isActive: true,
+              id: { not: entryId },
+              weekday: candidateDay,
+              periodId: candidatePeriod.id,
+              OR: [{ staffId: entry.staffId }, { classId: entry.classId }],
+            },
+            select: { id: true },
+          });
+          if (!conflict) {
+            suggestions.push({
+              weekday: candidateDay,
+              periodId: candidatePeriod.id,
+              periodNumber: candidatePeriod.number,
+              startTime: candidatePeriod.startTime,
+              endTime: candidatePeriod.endTime,
+            });
+          }
+          if (suggestions.length >= 5) break;
+        }
+        if (suggestions.length >= 5) break;
+      }
       throw new ConflictException({
         code: "TIMETABLE_EDIT_CONFLICT",
         message: "This change conflicts with another lesson for the same teacher or class",
-        conflicts: collisions.map((item) => ({ entryId: item.id, teacher: item.assignment.staff.fullName, className: item.assignment.class.name, period: item.period.number, weekday: item.weekday })),
+        conflicts: collisions.map((item) => ({
+          entryId: item.id,
+          teacher: item.assignment.staff.fullName,
+          className: item.assignment.class.name,
+          period: item.period.number,
+          weekday: item.weekday,
+        })),
+        suggestions,
       });
     }
 
