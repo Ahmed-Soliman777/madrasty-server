@@ -29,6 +29,18 @@ export class TimetableController {
     return this.timetableService.listSchoolTimetables(user, academicYearId);
   }
 
+  @Get("academic-years")
+  @Roles("SCHOOL_ADMIN")
+  academicYears(@CurrentUser() user: StaffUser) {
+    return this.timetableService.listAcademicYears(user);
+  }
+
+  @Get("periods")
+  @Roles("SCHOOL_ADMIN")
+  periods(@CurrentUser() user: StaffUser) {
+    return this.timetableService.listPeriods(user);
+  }
+
   @Post("generate")
   @Roles("SCHOOL_ADMIN")
   generate(@CurrentUser() user: StaffUser, @Body() dto: GenerateTimetableDto) {
