@@ -329,8 +329,7 @@ async function seed() {
         },
       ];
       for (const studentData of existingLegacyStudents) {
-        const resolvedClassNameEn = studentData.classNameEn === "LEGACY_CLASS_1" ? class1NameEn : studentData.classNameEn === "LEGACY_CLASS_2" ? class2NameEn : studentData.classNameEn;
-        const schoolClass = classesByNameEn.get(resolvedClassNameEn);
+        const schoolClass = classesByNameEn.get(studentData.classNameEn);
         if (!schoolClass) throw new Error(`Missing configured class ${studentData.classNameEn}`);
         const existingStudent = await transaction.student.findUnique({
           where: { nationalId: studentData.nationalId },
@@ -381,7 +380,12 @@ async function seed() {
       demoTeachersBySubject.set("Mathematics", mathTeacherGroup);
 
       for (const studentData of demoStudents) {
-        const schoolClass = classesByNameEn.get(studentData.classNameEn);
+        const resolvedClassNameEn = studentData.classNameEn === "LEGACY_CLASS_1"
+          ? class1NameEn
+          : studentData.classNameEn === "LEGACY_CLASS_2"
+            ? class2NameEn
+            : studentData.classNameEn;
+        const schoolClass = classesByNameEn.get(resolvedClassNameEn);
         if (!schoolClass) {
           throw new Error(`Student ${studentData.nationalId} references unknown class ${studentData.classNameEn}`);
         }
