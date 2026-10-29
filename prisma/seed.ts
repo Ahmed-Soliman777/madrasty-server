@@ -382,9 +382,10 @@ async function seed() {
         demoTeachersBySubject.set(teacherData.subjectNameEn, group);
       }
 
+      const additionalMathTeachers = demoTeachersBySubject.get("Mathematics") ?? [];
       const mathTeacherGroup = [
         { id: legacyTeacher.id },
-        ...(demoTeachersBySubject.get("Mathematics") ?? []),
+        ...additionalMathTeachers,
       ];
       demoTeachersBySubject.set("Mathematics", mathTeacherGroup);
 
@@ -456,8 +457,10 @@ async function seed() {
         for (const subjectData of SUBJECTS) {
           const teacherGroup = demoTeachersBySubject.get(subjectData.nameEn) ?? [];
           const selectedTeacher =
-            subjectData.nameEn === "Mathematics" && classIndex < 2
-              ? legacyTeacher
+            subjectData.nameEn === "Mathematics"
+              ? classIndex < 2
+                ? legacyTeacher
+                : additionalMathTeachers[(classIndex - 2) % additionalMathTeachers.length]
               : teacherGroup[classIndex % teacherGroup.length];
           if (!selectedTeacher) {
             throw new Error(`No qualified teacher configured for subject ${subjectData.nameEn}`);
