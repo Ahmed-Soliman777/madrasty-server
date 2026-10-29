@@ -210,6 +210,15 @@ async function seed() {
     const demoTeachers = parseJsonEnv<DemoTeacher[]>("SEED_DEMO_TEACHERS_JSON");
     const demoStudents = parseJsonEnv<DemoStudent[]>("SEED_DEMO_STUDENTS_JSON");
     assertDemoData(demoClasses, demoTeachers, demoStudents);
+    if (demoClasses.some((item) => item.nameEn === class1NameEn || item.nameEn === class2NameEn)) {
+      throw new Error("Additional class names must not duplicate either existing class.");
+    }
+    if (demoTeachers.some((item) => item.email.toLowerCase() === teacherEmail.toLowerCase())) {
+      throw new Error("A demo teacher email duplicates the existing Mathematics teacher email.");
+    }
+    if (demoStudents.some((item) => item.nationalId === student1NationalId || item.nationalId === student2NationalId)) {
+      throw new Error("A demo student national ID duplicates one of the two existing students.");
+    }
 
     const school = await prismaService.school.findUnique({ where: { code: schoolCode } });
     if (!school) {
@@ -426,6 +435,17 @@ async function seed() {
               classId: schoolClass.id,
             },
           });
+        }
+      }
+
+      for (const classData of allClassConfigs) {
+        const schoolClass = classesByNameEn.get(classData.nameEn);
+        if (!schoolClass) throw new Error(`Missing class after seed setup: ${classData.nameEn}`);
+        const activeStudentCount = await transaction.student.count({
+          where: { schoolId: school.id, classId: schoolClass.id, isActive: true },
+        });
+        if (activeStudentCount !== 10) {
+          throw new Error(`Class ${classData.nameEn} has ${activeStudentCount} active students after seeding; expected exactly ten. No changes were committed.`);
         }
       }
 
