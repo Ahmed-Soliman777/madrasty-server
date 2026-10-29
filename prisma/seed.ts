@@ -278,9 +278,10 @@ async function seed() {
 
       const periods = await Promise.all(
         PERIODS.map(async (period) => {
-          return transaction.period.findFirst({
+          const existingPeriod = await transaction.period.findFirst({
             where: { schoolId: school.id, number: period.number },
-          }) ?? transaction.period.create({
+          });
+          return existingPeriod ?? transaction.period.create({
             data: { ...period, schoolId: school.id },
           });
         }),
