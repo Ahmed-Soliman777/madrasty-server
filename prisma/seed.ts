@@ -465,6 +465,43 @@ async function seed() {
         }
       }
 
+      const legacyClass = classesByNameEn.get(class1NameEn);
+      const mathSubject = subjects.get("Mathematics");
+      if (legacyClass && mathSubject) {
+        const legacyMathAssignment = await transaction.teacherAssignment.findFirst({
+          where: {
+            schoolId: school.id,
+            staffId: legacyTeacher.id,
+            classId: legacyClass.id,
+            subjectId: mathSubject.id,
+          },
+        });
+        if (legacyMathAssignment) {
+          const homeworkTitle = "تمارين صفحة 45 – الضرب في عدد من رقمين";
+          const existingHomework = await transaction.homework.findFirst({
+            where: {
+              schoolId: school.id,
+              assignmentId: legacyMathAssignment.id,
+              title: homeworkTitle,
+              deletedAt: null,
+            },
+          });
+          if (!existingHomework) {
+            await transaction.homework.create({
+              data: {
+                schoolId: school.id,
+                assignmentId: legacyMathAssignment.id,
+                staffId: legacyTeacher.id,
+                classId: legacyClass.id,
+                title: homeworkTitle,
+                notes: "حل الأسئلة من 1 إلى 10 مع كتابة خطوات التفكير.",
+                dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+              },
+            });
+          }
+        }
+      }
+
       const otpCode = process.env.SEED_TEST_OTP_CODE?.trim();
       if (otpCode) {
         const existingOtp = await transaction.otpVerification.findFirst({
