@@ -4,7 +4,6 @@ import {
   BehaviorKind,
   Gender,
   Role,
-  Weekday,
 } from "../src/generated/prisma/enums.js";
 import { PrismaService } from "../src/prisma.service.js";
 
@@ -126,7 +125,25 @@ function assertDemoData(
   ) {
     throw new Error("Demo teachers must include two additional Mathematics teachers and three teachers for each other subject");
   }
+  const classNames = new Set<string>();
+  for (const schoolClass of classes) {
+    if (!schoolClass.nameAr || !schoolClass.nameEn || !schoolClass.gradeAr || !schoolClass.gradeEn) {
+      throw new Error("Every demo class requires Arabic and English names and grade labels");
+    }
+    if (classNames.has(schoolClass.nameEn)) {
+      throw new Error(`Duplicate demo class name: ${schoolClass.nameEn}`);
+    }
+    classNames.add(schoolClass.nameEn);
+  }
+  const teacherEmails = new Set<string>();
+  for (const teacher of teachers) {
+    if (teacherEmails.has(teacher.email.toLowerCase())) {
+      throw new Error(`Duplicate demo teacher email: ${teacher.email}`);
+    }
+    teacherEmails.add(teacher.email.toLowerCase());
+  }
   const studentIds = new Set<string>();
+  const rosterCounts = new Map<string, number>();
   for (const student of students) {
     if (!student.nationalId || !student.nameAr || !student.nameEn || !student.classNameEn) {
       throw new Error("Every demo student requires nationalId, bilingual names, and classNameEn");
@@ -135,11 +152,28 @@ function assertDemoData(
       throw new Error(`Duplicate demo student national ID in environment configuration: ${student.nationalId}`);
     }
     studentIds.add(student.nationalId);
+    rosterCounts.set(student.classNameEn, (rosterCounts.get(student.classNameEn) ?? 0) + 1);
     if (student.gender !== Gender.FEMALE && student.gender !== Gender.MALE) {
       throw new Error(`Invalid gender for demo student ${student.nationalId}`);
     }
     if (!student.guardian?.phone || !student.guardian?.nationalId || !student.guardian?.nameAr || !student.guardian?.nameEn) {
       throw new Error(`Missing guardian data for demo student ${student.nationalId}`);
+    }
+  }
+  if (students.length !== 68) {
+    throw new Error("SEED_DEMO_STUDENTS_JSON must contain 68 additional students");
+  }
+  if (rosterCounts.get("LEGACY_CLASS_1") !== 9 || rosterCounts.get("LEGACY_CLASS_2") !== 9) {
+    throw new Error("The two existing classes must each have exactly nine additional students");
+  }
+  for (const schoolClass of classes) {
+    if (rosterCounts.get(schoolClass.nameEn) !== 10) {
+      throw new Error(`Demo class ${schoolClass.nameEn} must have exactly ten students`);
+    }
+  }
+  for (const configuredClassName of rosterCounts.keys()) {
+    if (configuredClassName !== "LEGACY_CLASS_1" && configuredClassName !== "LEGACY_CLASS_2" && !classNames.has(configuredClassName)) {
+      throw new Error(`Student roster references an unknown class: ${configuredClassName}`);
     }
   }
 }
